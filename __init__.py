@@ -44,6 +44,12 @@ class HelloWorldSkill(MycroftSkill):
         """ This is a Padatious intent handler.
         It is triggered using a list of sample phrases."""
         self.speak_dialog("how.are.you")
+    
+    @intent_handler('GoodMorning.intent')
+    def handle_how_are_you_intent(self, message):
+        """ This is a Padatious intent handler.
+        It is triggered using a list of sample phrases."""
+        self.speak_dialog("good.morning")
 
     @intent_handler(IntentBuilder('HelloWorldIntent')
                     .require('HelloWorldKeyword'))
