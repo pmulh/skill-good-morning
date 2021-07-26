@@ -17,6 +17,7 @@
 
 from adapt.intent import IntentBuilder
 from mycroft import MycroftSkill, intent_handler
+from mycroft.util import play_mp3
 from time import sleep
 from datetime import datetime
 from dateutil import tz
@@ -54,9 +55,11 @@ class GoodMorningSkill(MycroftSkill):
 #        self.speak_dialog("how.are.you")
     
     @intent_handler('GoodMorning.intent')
-    def handle_how_are_you_intent(self, message):
+    def handle_good_morning_intent(self, message):
         """ This is a Padatious intent handler.
         It is triggered using a list of sample phrases."""
+        self.play_alarm_sounds(num_plays = 5, secs_between_plays = 40)
+
         timezone = pytz.timezone('Europe/Dublin')
         now = datetime.now(timezone)
         day = now.strftime('%A')
@@ -96,7 +99,17 @@ class GoodMorningSkill(MycroftSkill):
         wait_while_speaking()
         self.bus.emit(Message(msg_type="recognizer_loop:utterance",
                               data={"utterances": ['tell me the news']}))
+        # TODO: Turn on radio after about half an hour (when news should be finished)
 
+    def play_alarm_sounds(self, num_plays = 3, secs_between_plays = 30):
+        alarm_sound = '/home/pi/mycroft-core/skills/mycroft-alarm.mycroftai/sounds/chimes.mp3'
+        alarm_sound_duration = 22
+        play_count = 0
+        while play_count < num_plays:
+            play_count = play_count + 1
+            play_mp3(alarm_sound)
+            sleep(alarm_sound_duration + secs_between_plays)
+        return
 
     def parse_reminders(self, date):
         with open('/home/pi/.mycroft/skills/GoodMorningSkill/reminders.json') as f:
@@ -114,15 +127,6 @@ class GoodMorningSkill(MycroftSkill):
         else:
             self.speak_dialog('You have no reminders for today')
         return 
-
-#    @intent_handler(IntentBuilder('HelloWorldIntent')
-#                    .require('HelloWorldKeyword'))
-#    def handle_hello_world_intent(self, message):
-#        """ Skills can log useful information. These will appear in the CLI and
-#        the skills.log file."""
-#        self.log.info("There are five types of log messages: "
-#                      "info, debug, warning, error, and exception.")
-#        self.speak_dialog("hello.world")
 
     def stop(self):
         pass
