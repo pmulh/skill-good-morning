@@ -26,6 +26,7 @@ from mycroft.messagebus.message import Message
 import json
 from mycroft.audio import wait_while_speaking
 import requests
+import subprocess
 
 class GoodMorningSkill(MycroftSkill):
     def __init__(self):
@@ -59,13 +60,15 @@ class GoodMorningSkill(MycroftSkill):
         """ This is a Padatious intent handler.
         It is triggered using a list of sample phrases."""
         self.play_alarm_sounds(num_plays = 5, secs_between_plays = 40)
+        sleep(600)
+        self.play_alarm_sounds(num_plays = 5, secs_between_plays = 20, increase_volume = False)
 
         timezone = pytz.timezone('Europe/Dublin')
         now = datetime.now(timezone)
         day = now.strftime('%A')
         month = now.strftime('%B')
         date = now.strftime('%d')
-        date_int = int(date)
+        date_int = int(date.lstrip('0')) # strip off leading zeroes first, so you don't get, e.g., 'the 01st of August'
         if 4 <= date_int <= 20 or 24 <= date_int <= 30:
             suffix = "th"
         else:
@@ -73,6 +76,7 @@ class GoodMorningSkill(MycroftSkill):
         time = now.strftime('%H:%M')
         date_dialog = "it's " + time + ' on ' + day + ', the ' + date + suffix + ' of ' + month
         self.speak_dialog("good.morning")
+        sleep(2)
         self.speak_dialog(date_dialog)
         # TODO - add dialog for 'sunrise is/was at <sunrise time>'; similarly for sunset
         r = requests.get('https://api.sunrise-sunset.org/json', params={'lat': 54.607868, 'lng': -5.926437}).json()['results']
@@ -100,27 +104,39 @@ class GoodMorningSkill(MycroftSkill):
         self.bus.emit(Message(msg_type="recognizer_loop:utterance",
                               data={"utterances": ['tell me the news']}))
         # TODO: Turn on radio after about half an hour (when news should be finished)
+        sleep(1920)
+        subprocess.run(['python', '/home/pi/Codes/python/picroft_and_co/irRemote/sendIRSignalOrders.py',
+                        'on_tuner'])
 
-    def play_alarm_sounds(self, num_plays = 3, secs_between_plays = 30):
+
+    def play_alarm_sounds(self, num_plays = 3, secs_between_plays = 30, increase_volume = True):
         alarm_sound = '/home/pi/mycroft-core/skills/mycroft-alarm.mycroftai/sounds/chimes.mp3'
         alarm_sound_duration = 22
         play_count = 0
+        final_volume = 84
         while play_count < num_plays:
+            if increase_volume:
+                volume = round((play_count+1)*final_volume/num_plays)
+            else:
+                volume = final_volume
+            volume_percent = str(volume) + '%'
+            self.log.info('setting volume to {}'.format(volume))
+            subprocess.run(['pactl', 'set-sink-volume', '@DEFAULT_SINK@', volume_percent])
             play_count = play_count + 1
             play_mp3(alarm_sound)
             sleep(alarm_sound_duration + secs_between_plays)
         return
 
     def parse_reminders(self, date):
-        with open('/home/pi/.mycroft/skills/GoodMorningSkill/reminders.json') as f:
+        with open('/home/pi/.config/mycroft/skills/GoodMorningSkill/reminders.json') as f:
             data = json.load(f)
         if date in data.keys():
             self.log.info(data[date])
             for reminder in data[date]:
                 self.log.info(reminder)
-                if reminder['type'] == 'birthday':
-                    birthday_dialog = "Don't forget that today is " + reminder['details'] + "'s birthday"
-                    self.speak_dialog(birthday_dialog)
+                if reminder['type'] == 'event':
+                    event_dialog = "Today is " + reminder['details']
+                    self.speak_dialog(event_dialog)
                 elif reminder['type'] == 'todo':
                     todo_dialog = "You have a reminder for today to " + reminder['details']
                     self.speak_dialog(todo_dialog)
